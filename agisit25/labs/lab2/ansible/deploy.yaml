@@ -1,0 +1,108 @@
+---
+
+# common
+- hosts: all
+  remote_user: root
+  gather_facts: true
+
+  tasks:
+
+  - name: install git
+    apt:
+      name: git
+      state: present
+      update_cache: yes
+    register: apt_status
+    until: apt_status is success
+    delay: 6
+    retries: 10
+
+# web
+- hosts: web
+  remote_user: root
+  gather_facts: true
+
+  tasks:
+
+  - name: install nginx
+    apt:
+      name: nginx
+      state: present
+    register: apt_status
+    until: apt_status is success
+    delay: 6
+    retries: 10
+
+  - name: write our nginx.conf
+    template:
+      src: /root/lab2/web/nginx.conf.j2
+      dest: /etc/nginx/nginx.conf
+    notify: restart nginx
+
+  - name: write our /etc/nginx/sites-available/default
+    template:
+      src: /root/lab2/web/default-site.j2
+      dest: /etc/nginx/sites-available/default
+    notify: restart nginx
+
+  - name: deploy website content
+    template:
+      src: /root/lab2/web/index.html.j2
+      dest: /usr/share/nginx/html/index.html
+
+  - name: Ensure nginx is started and enabled on boot
+    service:
+      name: nginx
+      state: started
+      enabled: yes
+
+  handlers:
+
+  - name: restart nginx
+    service:
+      name: nginx
+      state: restarted
+
+# balancer
+- hosts: balancer
+  remote_user: root
+  gather_facts: true
+
+  tasks:
+
+  - name: install haproxy and socat
+    apt:
+      pkg: ['haproxy', 'socat']
+      state: latest
+    register: apt_status
+    until: apt_status is success
+    delay: 6
+    retries: 10
+
+  - name: enable haproxy
+    lineinfile:
+      path: /etc/default/haproxy
+      regexp: "^ENABLED.+$"
+      line: "ENABLED=1"
+      state: present
+
+  - name: deploy haproxy config
+    template:
+      src: /root/lab2/web/haproxy.cfg.j2
+      dest: /etc/haproxy/haproxy.cfg
+      mode: 0644
+      validate: haproxy -f %s -c -q
+    notify: restart haproxy
+
+  - name: Ensure HAProxy is started and enabled on boot.
+    service:
+      name: haproxy
+      state: started
+      enabled: yes
+
+  handlers:
+
+  - name: restart haproxy
+    service:
+      name: haproxy
+      state: restarted

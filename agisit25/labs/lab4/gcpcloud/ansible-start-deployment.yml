@@ -1,0 +1,14 @@
+---
+- hosts: master
+  become: yes
+  become_user: root
+  become_method: sudo
+  tasks:
+    - name: Copy kubernetes deployment file
+      copy: 
+        src: deployment.yaml
+        dest: /home/ubuntu/deployment.yaml
+        mode: 0777
+
+    - name: Start deployment
+      shell: kubectl apply -f /home/ubuntu/deployment.yaml

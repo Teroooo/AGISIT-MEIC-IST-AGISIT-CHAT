@@ -1,0 +1,25 @@
+services:
+  mgmt:
+    build: .
+    container_name: mgmt
+    volumes:
+    - type: bind
+      source: .
+      target: /root/lab2
+    - type: bind
+      source: ssh-keys
+      target: /root/.ssh
+
+  web1:
+    build: .
+    container_name: web1
+
+  web2:
+    build: .
+    container_name: web2
+
+  balancer:
+    build: .
+    container_name: balancer
+    ports:
+      - 8080:80

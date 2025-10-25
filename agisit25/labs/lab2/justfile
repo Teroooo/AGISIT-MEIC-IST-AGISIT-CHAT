@@ -1,0 +1,54 @@
+set shell := ["bash", "-uc"]
+
+default:
+  @just --list
+
+inventory:
+  #!/usr/bin/env bash
+  rm -f ansible/inventory.ini
+  for node in "balancer" "web1" "web2"; do
+    ip=$(docker inspect --format '{{{{ .NetworkSettings.Networks.lab2_default.IPAddress }}' $node)
+    echo "$node ansible_host=$ip ansible_user=root ansible_connection=ssh" >> ansible/inventory.ini
+  done
+
+  echo "[web]" >> ansible/inventory.ini
+  for node in "web1" "web2"; do
+    echo "$node" >> ansible/inventory.ini
+  done
+
+gen-ssh-keys:
+  #!/usr/bin/env bash
+  if [ ! -d ssh-keys ]; then
+    mkdir ssh-keys
+    ssh-keygen -N "" -f ssh-keys/id_rsa -t rsa -b 2048
+  fi
+
+#start: gen-ssh-keys && inventory
+start:
+  docker compose build
+  docker compose up -d
+  #Added by me
+  # Copy SSH keys to containers
+  docker exec -i mgmt cat /root/.ssh/id_rsa.pub | docker exec -i web2 bash -c 'mkdir -p /root/.ssh && cat > /root/.ssh/authorized_keys && chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys'
+  docker exec -i mgmt cat /root/.ssh/id_rsa.pub | docker exec -i balancer bash -c 'mkdir -p /root/.ssh && cat > /root/.ssh/authorized_keys && chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys'
+  docker exec -i mgmt cat /root/.ssh/id_rsa.pub | docker exec -i web1 bash -c 'mkdir -p /root/.ssh && cat > /root/.ssh/authorized_keys && chmod 700 /root/.ssh && chmod 600 /root/.ssh/authorized_keys'
+  # Fix permissions on mgmt
+  docker exec mgmt chmod 600 /root/.ssh/id_rsa
+
+
+deploy:
+  #!/usr/bin/env bash
+  docker exec -it mgmt bash -c 'cd lab2/ansible && ansible-playbook deploy.yaml'
+  echo "Load balancer reachable at http://localhost:8080"
+
+mgmt:
+  docker exec -it mgmt bash
+
+ps:
+  docker ps
+
+stop:
+  docker compose down
+
+clean:
+  rm -rf ansible/inventory.ini ssh-keys
