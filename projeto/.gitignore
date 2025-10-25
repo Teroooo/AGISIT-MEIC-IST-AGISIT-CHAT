@@ -1,0 +1,11 @@
+node_modules/
+Application/key.json
+Application/infra/terraform/.terraform/
+Application/infra/terraform/.terraform.lock.hcl
+Application/infra/terraform/terraform.tfstate
+Application/infra/terraform/terraform.tfstate.backup
+Application/infra/ci/key.json
+.DS_Store/
+.vscode/
+.env
+key.json

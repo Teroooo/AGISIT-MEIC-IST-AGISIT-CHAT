@@ -1,0 +1,95 @@
+stages: [build, deploy]
+
+variables:
+  DOCKER_NS: "antonioregistry"
+
+.kaniko: &kaniko
+  stage: build
+  image:
+    name: gcr.io/kaniko-project/executor:debug
+    entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  before_script:
+    - mkdir -p /kaniko/.docker
+    - echo "{\"auths\":{\"https://index.docker.io/v1/\":{\"username\":\"$DOCKERHUB_USERNAME\",\"password\":\"$DOCKERHUB_PASSWORD\"}}}" > /kaniko/.docker/config.json
+
+deploy:
+  stage: deploy
+  image:
+    name: bitnami/kubectl:latest
+    entrypoint: [""]
+  rules:
+    - if: '$CI_COMMIT_BRANCH == "master"'
+  before_script:
+    # recreate kubeconfig from GitLab variable
+    - echo "$KUBECONFIG_B64" | base64 -d > kubeconfig
+    - export KUBECONFIG=$PWD/kubeconfig
+  script:
+    # force pods to pull new images
+    - kubectl -n "$KUBE_NAMESPACE" rollout restart deployment
+    - kubectl -n "$KUBE_NAMESPACE" rollout status deployment
+    - echo "len=${#KUBECONFIG_B64}"
+    - printf '%s' "$KUBECONFIG_B64" | tr -d '\r\n ' | base64 -d > kubeconfig
+    - export KUBECONFIG=$PWD/kubeconfig
+    - kubectl get nodes
+
+build:frontend:
+  <<: *kaniko
+  script: |
+    set -e
+    ls -la "$CI_PROJECT_DIR/Application/frontend"
+    test -f "$CI_PROJECT_DIR/Application/frontend/Dockerfile"
+    /kaniko/executor \
+      --context "$CI_PROJECT_DIR/Application/frontend" \
+      --dockerfile "Dockerfile" \
+      --destination "docker.io/$DOCKER_NS/frontend:latest" \
+      --destination "docker.io/$DOCKER_NS/frontend:${CI_COMMIT_SHORT_SHA}"
+
+build:auth-users:
+  <<: *kaniko
+  script: |
+    set -e
+    ls -la "$CI_PROJECT_DIR/Application/backend/services/auth-users"
+    test -f "$CI_PROJECT_DIR/Application/backend/services/auth-users/Dockerfile"
+    /kaniko/executor \
+      --context "$CI_PROJECT_DIR/Application/backend/services" \
+      --dockerfile "auth-users/Dockerfile" \
+      --destination "docker.io/$DOCKER_NS/auth-users:latest" \
+      --destination "docker.io/$DOCKER_NS/auth-users:${CI_COMMIT_SHORT_SHA}"
+
+build:contacts:
+  <<: *kaniko
+  script: |
+    set -e
+    ls -la "$CI_PROJECT_DIR/Application/backend/services/contacts"
+    test -f "$CI_PROJECT_DIR/Application/backend/services/contacts/Dockerfile"
+    /kaniko/executor \
+      --context "$CI_PROJECT_DIR/Application/backend/services" \
+      --dockerfile "contacts/Dockerfile" \
+      --destination "docker.io/$DOCKER_NS/contacts:latest" \
+      --destination "docker.io/$DOCKER_NS/contacts:${CI_COMMIT_SHORT_SHA}"
+
+build:messages:
+  <<: *kaniko
+  script: |
+    set -e
+    ls -la "$CI_PROJECT_DIR/Application/backend/services/messages"
+    test -f "$CI_PROJECT_DIR/Application/backend/services/messages/Dockerfile"
+    /kaniko/executor \
+      --context "$CI_PROJECT_DIR/Application/backend/services" \
+      --dockerfile "messages/Dockerfile" \
+      --destination "docker.io/$DOCKER_NS/messages:latest" \
+      --destination "docker.io/$DOCKER_NS/messages:${CI_COMMIT_SHORT_SHA}"
+
+build:groups:
+  <<: *kaniko
+  script: |
+    set -e
+    ls -la "$CI_PROJECT_DIR/Application/backend/services/groups"
+    test -f "$CI_PROJECT_DIR/Application/backend/services/groups/Dockerfile"
+    /kaniko/executor \
+      --context "$CI_PROJECT_DIR/Application/backend/services" \
+      --dockerfile "groups/Dockerfile" \
+      --destination "docker.io/$DOCKER_NS/groups:latest" \
+      --destination "docker.io/$DOCKER_NS/groups:${CI_COMMIT_SHORT_SHA}"
