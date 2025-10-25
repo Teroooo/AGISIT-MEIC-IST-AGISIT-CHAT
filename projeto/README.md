@@ -13,11 +13,11 @@ The project includes multiple backend services, a static frontend served by ngin
 	- `k8s/` — Kubernetes manifests for each service and DBs.
 - `report/` — project report and documentation.
 
-![LOGIN](/assets/login.png)
+![LOGIN](/projeto/assets/login.png)
 
-![CHAT](/assets/chat.png)
+![CHAT](/projeto/assets/chat.png)
 
-![GRAFANA](/assets/grafana.png)
+![GRAFANA](/projeto/assets/grafana.png)
 
 ## Quick architecture overview
 
